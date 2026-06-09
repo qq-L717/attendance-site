@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>水利计算课程设计考勤对比工具</title>
+  <meta name="description" content="水利计算课程设计考勤对比工具：上传每日签到表，自动对比固定总名单，生成出勤统计和考勤 Excel。" />
+  <meta name="keywords" content="水利计算课程设计,考勤对比,签到表,出勤统计,Excel考勤" />
+  <meta name="author" content="水利计算课程设计考勤工具" />
+  <meta name="robots" content="index,follow" />
+  <meta property="og:title" content="水利计算课程设计考勤对比工具" />
+  <meta property="og:description" content="上传每日签到表，自动对比固定总名单并生成考勤结果。" />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#2563eb" />
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <style>
+    :root{
+      --bg:#f5f7fb;--card:#ffffff;--text:#101828;--muted:#667085;--line:#e4e7ec;
+      --primary:#2563eb;--primary2:#1d4ed8;--ok:#16a34a;--warn:#f59e0b;--bad:#dc2626;
+      --soft:#eff6ff;--shadow:0 20px 60px rgba(15,23,42,.08);--radius:22px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;color:var(--text);background:radial-gradient(circle at top left,#dbeafe 0,#f8fafc 34%,var(--bg) 100%)}
+    .wrap{max-width:1180px;margin:0 auto;padding:40px 20px 56px}
+    header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:22px}
+    h1{margin:0;font-size:32px;letter-spacing:-.03em;line-height:1.15}
+    p{margin:8px 0 0;color:var(--muted);line-height:1.7}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:999px;background:#eaf1ff;color:#1d4ed8;font-size:13px;font-weight:800;white-space:nowrap}
+    .grid{display:grid;grid-template-columns:.95fr 1.05fr;gap:18px;align-items:start}
+    .card{background:rgba(255,255,255,.92);border:1px solid rgba(226,232,240,.9);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;backdrop-filter:blur(8px)}
+    .card h2{margin:0 0 16px;font-size:18px;letter-spacing:-.01em}
+    .fixedbox,.drop{border-radius:18px;padding:16px;line-height:1.65}
+    .fixedbox{border:1px solid #bfdbfe;background:linear-gradient(180deg,#eff6ff,#f8fbff)}
+    .fixedbox strong,.drop strong{display:block;margin-bottom:4px;color:#1d4ed8}
+    .drop{margin-top:12px;border:1.5px dashed #b9c6d8;background:#fbfdff;min-height:106px;display:flex;align-items:center;justify-content:space-between;gap:16px;transition:.18s ease}
+    .drop:hover{border-color:var(--primary);background:#f8fbff}
+    .drop small,.hint,footer{color:var(--muted)}
+    input[type=file]{max-width:320px;color:#475467}
+    .controls{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+    label{display:block;margin-bottom:7px;font-size:13px;font-weight:800;color:#344054}
+    input[type=date],select,input[type=text]{width:100%;border:1px solid #d0d5dd;border-radius:14px;padding:11px 12px;background:#fff;color:var(--text);font-size:14px;outline:none;transition:.15s ease}
+    input[type=date]:focus,select:focus,input[type=text]:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(37,99,235,.10)}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+    button{border:0;border-radius:14px;padding:12px 16px;font-weight:800;cursor:pointer;font-size:14px;transition:.15s ease}
+    button:hover:not(:disabled){transform:translateY(-1px)}
+    .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;box-shadow:0 10px 20px rgba(37,99,235,.18)}
+    .btn-secondary{background:#eef2f7;color:#344054}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .status{margin-top:14px;padding:13px 14px;border-radius:16px;background:#f8fafc;border:1px solid var(--line);color:#475467;line-height:1.65;white-space:pre-wrap}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+    .kpi{border:1px solid var(--line);border-radius:18px;padding:14px;background:linear-gradient(180deg,#fff,#fafafa)}
+    .kpi span{font-size:12px;color:var(--muted);font-weight:700}.kpi b{display:block;font-size:25px;margin-top:6px;letter-spacing:-.02em}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px}.tab{padding:9px 12px;border-radius:999px;background:#f1f5f9;color:#475467;cursor:pointer;font-weight:800;font-size:13px;user-select:none}.tab.active{background:#dbeafe;color:#1d4ed8}
+    table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:white;font-size:13px}th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f8fafc;color:#344054;font-size:12px;position:sticky;top:0;z-index:1}tr:last-child td{border-bottom:0}.ok{color:var(--ok);font-weight:800}.bad{color:var(--bad);font-weight:800}.warn{color:var(--warn);font-weight:800}.tablebox{max-height:470px;overflow:auto;border-radius:16px}
+    .hint{font-size:12px;margin-top:10px;line-height:1.6;text-align:right}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}.controls,.kpis{grid-template-columns:1fr 1fr}header{display:block}.pill{margin-top:12px}.drop{display:block}input[type=file]{margin-top:12px;max-width:100%}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header><div><h1>水利计算课程设计考勤工具</h1><p>上传当天签到表，自动生成考勤 Excel。</p></div><div class="pill">固定名单已内置</div></header>
+  <div class="grid">
+    <section class="card"><h2>上传签到表</h2>
+      <div class="fixedbox"><strong>固定总名单：已内置</strong><span>每天只需上传签到文件。</span></div>
+      <div class="drop" style="margin-top:12px"><div><strong>当天签到表</strong><small>支持 .xlsx / .xls</small></div><input id="signFile" type="file" accept=".xlsx,.xls" /></div>
+      <div class="controls"><div><label for="attDate">签到日期</label><input id="attDate" type="date" /></div><div><label for="session">场次</label><select id="session"><option value="上午">上午</option><option value="下午">下午</option></select></div><div><label for="markText">出勤标记</label><input id="markText" type="text" value="✓" maxlength="3" /></div></div>
+      <div class="actions"><button class="btn-primary" id="runBtn">生成考勤表</button><button class="btn-secondary" id="downloadBtn" disabled>下载 Excel</button><button class="btn-secondary" id="resetBtn">清空当天签到和结果</button></div>
+      <div id="status" class="status">请上传当天签到表。</div>
+    </section>
+    <section class="card"><h2>结果预览</h2><div class="kpis"><div class="kpi"><span>签到人数</span><b id="kSigned">0</b></div><div class="kpi"><span>成功匹配</span><b id="kMatched">0</b></div><div class="kpi"><span>未到人数</span><b id="kAbsent">0</b></div><div class="kpi"><span>异常签到</span><b id="kUnknown">0</b></div></div><div class="tabs"><div class="tab active" data-tab="summary">各班汇总</div><div class="tab" data-tab="absent">未到名单</div><div class="tab" data-tab="unknown">异常签到</div><div class="tab" data-tab="debug">定位检查</div></div><div class="tablebox"><table id="resultTable"><thead></thead><tbody></tbody></table></div></section>
+  </div>
+</div>
+<script>
+const FIXED_TEMPLATE_BASE64 = "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";
+let signWorkbook=null, signFileName='', outputBlob=null, lastResult=null, activeTab='summary';
+const $=id=>document.getElementById(id); const status=msg=>$('status').textContent=msg;
+const norm=v=>{ if(v==null) return ''; let s=''; if(typeof v==='object'){ if(v.text!=null) s=String(v.text); else if(v.richText) s=v.richText.map(x=>x.text||'').join(''); else if(v.result!=null) s=String(v.result); else if(v.formula&&v.result!=null) s=String(v.result); else s=String(v); } else s=String(v); return s.normalize('NFKC').replace(/[\u00A0\u3000]/g,' ').trim(); };
+// 学号统一只保留数字，解决 Excel 中文本/数字/带空格/带前缀引号等格式差异导致的误判。
+const normId=v=>{ const s=norm(v).replace(/\.0$/,''); const digits=s.replace(/\D/g,''); return digits; };
+// 姓名去除所有空白并做全角半角统一，解决签到表姓名中含空格时无法匹配的问题。
+const normName=v=>norm(v).replace(/\s+/g,'');
+const signKey=p=>p.id?`id:${p.id}`:`name:${p.nameKey||normName(p.name)}`;
+const pad2=n=>String(n).padStart(2,'0');
+function colLetter(n){ let s=''; while(n>0){ let m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
+function safeDateKeyFromDate(d){ if(!(d instanceof Date)||isNaN(d)) return ''; return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function excelSerialToDateKey(num){ const n=Number(num); if(!isFinite(n)) return ''; const utcDays=Math.floor(n-25569); const date=new Date(utcDays*86400*1000); return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth()+1)}-${pad2(date.getUTCDate())}`; }
+function dateKey(v){
+  if(v==null||v==='') return '';
+  if(v instanceof Date) return safeDateKeyFromDate(v);
+  if(typeof v==='number') return excelSerialToDateKey(v);
+  if(typeof v==='object') return dateKey(norm(v));
+  const s=String(v).trim();
+  let m=s.match(/(20\d{2})[-\/年.](\d{1,2})[-\/月.](\d{1,2})/); if(m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+  m=s.match(/(20\d{2})(\d{2})(\d{2})/); if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return '';
+}
+function inferDateFromFileName(name){ const s=name||''; let m=s.match(/(20\d{2})[-_年.]?(\d{2})[-_月.]?(\d{2})/); if(m) return `${m[1]}-${m[2]}-${m[3]}`; m=s.match(/(^|[^\d])(\d{2})(\d{2})(?=[^\d]|$)/); if(m){ const y=new Date().getFullYear(); return `${y}-${m[2]}-${m[3]}`; } return ''; }
+function inferSessionFromText(text){ const s=String(text||''); if(/下午/.test(s)) return '下午'; if(/上午/.test(s)) return '上午'; const hm=s.match(/\b(\d{1,2}):(\d{2})\b/); if(hm) return Number(hm[1])<12?'上午':'下午'; return ''; }
+function base64ToArrayBuffer(base64){ const bin=atob(base64); const bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i); return bytes.buffer; }
+async function readWorkbookFromFile(file){ const wb=new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer()); return wb; }
+async function loadTemplateWorkbook(){ const wb=new ExcelJS.Workbook(); await wb.xlsx.load(base64ToArrayBuffer(FIXED_TEMPLATE_BASE64)); return wb; }
+function worksheetRows(ws, maxRows=50){ const rows=[]; const n=Math.min(ws.rowCount||0,maxRows); for(let r=1;r<=n;r++){ const arr=[]; const row=ws.getRow(r); for(let c=1;c<=Math.max(ws.columnCount||0,row.cellCount||0);c++) arr[c]=row.getCell(c).value; rows[r]=arr; } return rows; }
+function findHeader(rows){ let best={row:0,name:0,id:0,score:-1}; for(let r=1;r<rows.length;r++){ let name=0,id=0; const row=rows[r]||[]; for(let c=1;c<row.length;c++){ const s=norm(row[c]); if(s==='姓名') name=c; if(s==='学号') id=c; } const score=(name?1:0)+(id?1:0); if(score>best.score) best={row:r,name,id,score}; } return best; }
+function getCellText(ws,r,c){ return norm(ws.getRow(r).getCell(c).value); }
+function findDateCol(rows, headerRow){ const row=rows[headerRow]||[]; for(let c=1;c<row.length;c++){ if(/签到日期|日期|时间/.test(norm(row[c]))) return c; } return 0; }
+function parseSignWorkbook(wb, fileName){
+  const ws=wb.worksheets.find(s=>/签到数据|扫码签到/.test(s.name)) || wb.worksheets[0];
+  if(!ws) throw new Error('签到文件没有工作表。');
+  const rows=worksheetRows(ws, Math.min(ws.rowCount||200, 5000));
+  const h=findHeader(rows); if(h.score<2) throw new Error('签到文件未找到“姓名”和“学号”列。');
+  const people=[], seen=new Set();
+  for(let r=h.row+1;r<=ws.rowCount;r++){
+    const id=normId(ws.getRow(r).getCell(h.id).value);
+    const rawName=norm(ws.getRow(r).getCell(h.name).value);
+    const nameKey=normName(rawName);
+    if(!id&&!nameKey) continue;
+    const key=id?`id:${id}`:`name:${nameKey}`;
+    if(seen.has(key)) continue;
+    seen.add(key);
+    people.push({id,name:rawName,nameKey,row:r,_key:key});
+  }
+  let autoDate='', autoSession='';
+  const dateCol=findDateCol(rows,h.row); if(dateCol){ for(let r=h.row+1;r<=ws.rowCount;r++){ const d=dateKey(ws.getRow(r).getCell(dateCol).value); if(d){ autoDate=d; break; } } }
+  const info=wb.worksheets.find(s=>/活动信息|信息/.test(s.name));
+  if(info){ const vals=[]; info.eachRow(row=>row.eachCell({includeEmpty:false},cell=>vals.push(norm(cell.value)))); const joined=vals.join(' '); if(!autoDate){ const m=joined.match(/20\d{2}[-\/.年]\d{1,2}[-\/.月]\d{1,2}/); if(m) autoDate=dateKey(m[0]); } autoSession=inferSessionFromText(joined)||autoSession; }
+  autoDate=autoDate||inferDateFromFileName(fileName); autoSession=autoSession||inferSessionFromText(fileName);
+  return {people, autoDate, autoSession, sheetName:ws.name};
+}
+function findTargetColumn(ws, targetDate, session){
+  const maxR=Math.min(ws.rowCount||10,10), maxC=ws.columnCount||20;
+  for(let r=1;r<=maxR;r++){
+    for(let c=1;c<=maxC;c++){
+      const d=dateKey(ws.getRow(r).getCell(c).value);
+      if(d!==targetDate) continue;
+      for(let cc=c; cc<=Math.min(c+4,maxC); cc++){
+        if(getCellText(ws,r+1,cc)===session) return cc;
+      }
+    }
+  }
+  return 0;
+}
+function isLikelyStudentId(id){ return /^\d{6,}$/.test(normId(id)); }
+function isLikelyStudentName(name){
+  const s=normName(name);
+  if(!s) return false;
+  if(['姓名','学号','序号','班级','专业','考勤','签到','状态'].includes(s)) return false;
+  if(/序号|学号|姓名|班级|考勤表|签到表/.test(s)) return false;
+  if(/^\d+$/.test(s)) return false;
+  return true;
+}
+function readRosterSheet(ws){
+  let headerRow=0, seqCol=0, idCol=0, nameCol=0;
+  const maxR=Math.min(ws.rowCount||0,20), maxC=ws.columnCount||20;
+  for(let r=1;r<=maxR;r++){
+    let rid=0,rname=0,rseq=0;
+    for(let c=1;c<=maxC;c++){
+      const s=getCellText(ws,r,c);
+      if(s==='序号') rseq=c;
+      if(s==='学号') rid=c;
+      if(s==='姓名') rname=c;
+    }
+    if(rid&&rname){ headerRow=r; seqCol=rseq; idCol=rid; nameCol=rname; break; }
+  }
+  const students=[]; if(!idCol||!nameCol) return {students};
+  for(let r=headerRow+1;r<=ws.rowCount;r++){
+    const row=ws.getRow(r);
+    const id=normId(row.getCell(idCol).value);
+    const name=norm(row.getCell(nameCol).value);
+    const nameKey=normName(name);
+    const seq=seqCol?norm(row.getCell(seqCol).value):'';
+    // 只把真正的学生行加入名单：学号必须是 6 位以上数字，姓名不能是“姓名/学号/序号”等表头文字。
+    // 这样可以过滤掉模板里重复出现的表头行，避免网页“未到名单”出现非人名。
+    if(!isLikelyStudentId(id) || !isLikelyStudentName(name)) continue;
+    students.push({row:r,seq,id,name,nameKey});
+  }
+  return {students,idCol,nameCol,seqCol};
+}
+function centerCell(cell){ cell.alignment=Object.assign({}, cell.alignment||{}, {horizontal:'center', vertical:'middle'}); }
+function markPresent(cell, mark){ cell.value=mark; centerCell(cell); cell.font=Object.assign({}, cell.font||{}, {bold:true}); }
+function markAbsent(cell){ cell.value=null; centerCell(cell); }
+async function process(){
+  if(!signWorkbook) throw new Error('请先上传当天签到文件。');
+  const targetDate=$('attDate').value, session=$('session').value, mark=$('markText').value||'✓'; if(!targetDate) throw new Error('请设置签到日期。');
+  const rosterWb=await loadTemplateWorkbook(); const sign=parseSignWorkbook(signWorkbook, signFileName);
+  const signById=new Map(), signByName=new Map(); sign.people.forEach(p=>{ if(p.id) signById.set(p.id,p); if(p.nameKey) signByName.set(p.nameKey,p); });
+  const matchedSignKeys=new Set(), allRosterIds=new Set(), allRosterNames=new Set(), summary=[], absent=[], debug=[]; let matched=0,totalRoster=0, missing=[];
+  rosterWb.worksheets.forEach(ws=>{
+    const col=findTargetColumn(ws,targetDate,session), roster=readRosterSheet(ws); if(!roster.students.length) return;
+    roster.students.forEach(st=>{ if(st.id) allRosterIds.add(st.id); if(st.nameKey) allRosterNames.add(st.nameKey); });
+    debug.push({sheetName:ws.name,target:`${targetDate} ${session}`, column:col?colLetter(col):'未找到'});
+    if(!col){ missing.push(ws.name); return; }
+    let classTotal=0,classPresent=0;
+    roster.students.forEach(st=>{
+      classTotal++; totalRoster++;
+      const hit=(st.id&&signById.get(st.id))||(st.nameKey&&signByName.get(st.nameKey));
+      const cell=ws.getRow(st.row).getCell(col);
+      if(hit){ markPresent(cell,mark); classPresent++; matched++; matchedSignKeys.add(hit._key||signKey(hit)); }
+      else { markAbsent(cell); absent.push({sheetName:ws.name,seq:st.seq,id:st.id,name:st.name,row:st.row,column:colLetter(col)}); }
+    });
+    summary.push({sheetName:ws.name,total:classTotal,present:classPresent,absent:classTotal-classPresent,rate:classTotal?Math.round(classPresent/classTotal*10000)/100+'%':'-'});
+  });
+  // “异常签到”的定义调整为：签到人不在固定总名单中。只要学号或清洗后的姓名能在总名单中找到，就不再算异常。
+  const unknown=sign.people.filter(p=>!(p.id&&allRosterIds.has(p.id)) && !(p.nameKey&&allRosterNames.has(p.nameKey)));
+  if(missing.length) throw new Error(`以下 Sheet 未找到 ${targetDate} ${session} 对应列：${missing.join('、')}。请检查日期/场次。`);
+  const buf=await rosterWb.xlsx.writeBuffer(); outputBlob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  lastResult={summary,absent,unknown,debug,signed:sign.people.length,matched,totalRoster,targetDate,session}; return lastResult;
+}
+function renderTable(){ const thead=$('resultTable').querySelector('thead'), tbody=$('resultTable').querySelector('tbody'); thead.innerHTML=''; tbody.innerHTML=''; if(!lastResult){ thead.innerHTML='<tr><th>提示</th></tr>'; tbody.innerHTML='<tr><td>暂无结果</td></tr>'; return; } let rows=[],heads=[]; if(activeTab==='summary'){ heads=['班级/Sheet','应到','出勤','未到','出勤率']; rows=lastResult.summary.map(x=>[x.sheetName,x.total,`<span class="ok">${x.present}</span>`,`<span class="bad">${x.absent}</span>`,x.rate]); } else if(activeTab==='absent'){ heads=['班级/Sheet','序号','学号','姓名','Excel位置','状态']; rows=lastResult.absent.map(x=>[x.sheetName,x.seq,x.id,x.name,`${x.column}${x.row}`,'<span class="bad">未到</span>']); if(!rows.length) rows=[['-','-','-','-','-','<span class="ok">无人未到</span>']]; } else if(activeTab==='unknown'){ heads=['学号','姓名','签到文件行号','说明']; rows=lastResult.unknown.map(x=>[x.id,x.name,x.row,'<span class="warn">固定名单未找到</span>']); if(!rows.length) rows=[['-','-','-','<span class="ok">无异常</span>']]; } else { heads=['班级/Sheet','目标','写入列','说明']; rows=lastResult.debug.map(x=>[x.sheetName,x.target,x.column,x.column==='未找到'?'<span class="bad">未定位</span>':'<span class="ok">已定位</span>']); } thead.innerHTML=`<tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr>`; tbody.innerHTML=rows.map(r=>`<tr>${r.map(c=>`<td>${c??''}</td>`).join('')}</tr>`).join(''); }
+function renderKpis(){ const r=lastResult||{signed:0,matched:0,absent:[],unknown:[]}; $('kSigned').textContent=r.signed||0; $('kMatched').textContent=r.matched||0; $('kAbsent').textContent=r.absent?.length||0; $('kUnknown').textContent=r.unknown?.length||0; }
+$('signFile').addEventListener('change', async e=>{ try{ const file=e.target.files[0]; if(!file) return; signFileName=file.name||''; status('正在读取签到文件……'); signWorkbook=await readWorkbookFromFile(file); const info=parseSignWorkbook(signWorkbook, signFileName); if(info.autoDate) $('attDate').value=info.autoDate; if(info.autoSession) $('session').value=info.autoSession; outputBlob=null; lastResult=null; $('downloadBtn').disabled=true; renderKpis(); renderTable(); status(`签到文件已读取：${info.sheetName}\n自动识别：${info.autoDate||'未识别日期'} ${info.autoSession||'未识别场次'}，签到人数 ${info.people.length}。\n请点击“生成考勤表”。`); }catch(err){ status('签到文件读取失败：'+err.message); } });
+$('runBtn').addEventListener('click', async()=>{ try{ $('runBtn').disabled=true; status('正在对比并生成 Excel……'); const r=await process(); renderKpis(); renderTable(); $('downloadBtn').disabled=false; const dbg=r.debug.map(x=>`${x.sheetName}: ${x.column}列`).join('；'); status(`处理完成：${r.targetDate} ${r.session}\n签到 ${r.signed} 人，成功匹配 ${r.matched} 人，未到 ${r.absent.length} 人，异常签到 ${r.unknown.length} 条。\n写入列检查：${dbg}\n未到名单已在网页显示，导出 Excel 不再对未到单元格标红；已过滤非学生表头行，并修复姓名/学号格式差异导致的异常误判。`); }catch(err){ status('处理失败：'+err.message); } finally { $('runBtn').disabled=false; } });
+$('downloadBtn').addEventListener('click',()=>{ if(!outputBlob) return; const a=document.createElement('a'); a.href=URL.createObjectURL(outputBlob); const d=$('attDate').value.replaceAll('-',''); a.download=`水利计算课程设计考勤表_${d}_${$('session').value}.xlsx`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); });
+function resetCurrentRun(){
+  signWorkbook=null;
+  signFileName='';
+  outputBlob=null;
+  lastResult=null;
+  activeTab='summary';
+  const fileInput=$('signFile');
+  if(fileInput) fileInput.value='';
+  $('downloadBtn').disabled=true;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  const firstTab=document.querySelector('.tab[data-tab="summary"]');
+  if(firstTab) firstTab.classList.add('active');
+  renderKpis();
+  renderTable();
+  status('已清空当天签到文件和生成结果。固定总名单仍保留，请重新上传当天扫码签到 Excel 文件。');
+}
+$('resetBtn').addEventListener('click', resetCurrentRun); document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active'); activeTab=t.dataset.tab; renderTable(); }));
+(function init(){ renderTable(); status('固定总名单已内置。请上传当天签到表。'); })();
+</script>
+</body>
+</html>
